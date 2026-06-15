@@ -126,9 +126,9 @@ After wallet setup, switch `.env` to `E2E_APP=all` or `E2E_APP=zoroswap` when yo
 
 Required local dependencies:
 
-- Node.js 22 or newer
+- Node.js 22 LTS, matching the GitHub Actions baseline
 - Yarn 1.x
-- Playwright Chromium
+- Playwright `1.60.0` Chromium, installed with `npx playwright install --with-deps chromium`
 - A Chromium-compatible desktop environment for headed runs
 - Miden wallet repository only when running wallet-backed apps
 
@@ -189,6 +189,8 @@ yarn qash:profile
 yarn test:e2e:testnet:qash:auth:chromium -- --reporter=list
 ```
 
+For the full stateful Qash flows below, a clean clone is not enough by itself. Prepare the auth profile and `.env` values first; otherwise the runners fail before the Playwright spec starts and only the default Playwright result files are written.
+
 Focused Qash feature surfaces:
 
 ```bash
@@ -220,7 +222,20 @@ QASH_FILL_PAYMENT_LINK_FORM=true \
 Continuous Qash product journey through Payment Link:
 
 ```bash
-QASH_PLATFORM_CONTACT_WALLET_ADDRESS=mtst1... yarn qash-platform-e2e
+QASH_AUTH_USER_DATA_DIR=.auth/qash yarn qash:profile
+```
+
+Set this in `.env`:
+
+```bash
+QASH_AUTH_USER_DATA_DIR=.auth/qash
+QASH_PLATFORM_CONTACT_WALLET_ADDRESS=mtst1...
+```
+
+Run:
+
+```bash
+HEADLESS=false yarn qash-platform-e2e
 ```
 
 This command creates or reuses a Qash multisig account from the reusable actor pool, requests faucet funding every run, waits for faucet mint/sync settlement, verifies direct funding or completes the faucet receive transaction when actionable, confirms the selected account balance, creates an employee contact, creates Payroll, creates and views an Invoice, returns to the Invoice dashboard, then creates a Payment Link. The pool creates accounts until `QASH_PLATFORM_ACCOUNT_POOL_SIZE`, default `3`, and then randomly reuses a visible existing account unless `QASH_PLATFORM_ALLOW_ACCOUNT_OVER_CAP=true` is explicitly set. It is one Playwright test, so the authenticated Chromium context stays open from the first account step until Payment Link creation completes or a fatal failure closes the run.
@@ -230,18 +245,28 @@ Known blocker on June 15, 2026: Qash testnet can retain a ready faucet receive p
 Qash stress with actor-a profile and a receiver wallet input:
 
 ```bash
-QASH_STRESS_LOOPS=<user-selected-loop-count> \
-QASH_STRESS_RECEIVER_WALLET_ADDRESS=mtst1... \
-yarn qash-stress
-```
-
-Prepare actor-a as the Chromium profile first. The receiver wallet address is represented by the saved testnet Miden receive address used on Payroll and Invoice workload forms:
-
-```bash
 QASH_AUTH_USER_DATA_DIR=.auth/qash/actor-a yarn qash:profile
 ```
 
+Set this in `.env`:
+
+```bash
+QASH_AUTH_USER_DATA_DIR=.auth/qash/actor-a
+QASH_STRESS_LOOPS=<user-selected-loop-count>
+QASH_STRESS_RECEIVER_WALLET_ADDRESS=mtst1...
+QASH_STRESS_INCLUDE_PAYMENT_LINK=false
+QASH_STRESS_INCLUDE_MONEY_MOVEMENT=false
+```
+
+Run:
+
+```bash
+HEADLESS=false yarn qash-stress
+```
+
 The runner defaults actor-a to `.auth/qash/actor-a`, requests faucet tokens every run for actor-a, then runs user-selected mixed platform workload cycles. Each loop creates a unique Payroll contact group, unique Payroll employee contact, Payroll, Invoice client/contact, and Invoice mutations with per-operation timing/status artifacts. `QASH_STRESS_LOOPS` is required and user-selected; `QASH_DURABILITY_LOOPS` and `QASH_DURABILITY_PAYMENT_LOOPS` remain compatibility aliases. Payment Link creation and Actor A/B public Payment Link settlement default to disabled until the upstream Qash Payment Link route is healthy again.
+
+Use `yarn qash:actor-profile actor-a` only when intentionally preparing Actor A/B wallet diagnostics; that helper requires actor-specific metadata such as `QASH_ACTOR_A_EMAIL`.
 
 Qash Actor A/B money movement through public Payment Links:
 
@@ -378,6 +403,8 @@ Common failures:
 | Symptom | Likely Cause | Fix |
 |---|---|---|
 | `WALLET_PASSWORD is required` | Running wallet-backed apps without wallet setup | Set `E2E_APP=qash` for Qash-only, or configure wallet vars |
+| `QASH_PLATFORM_CONTACT_WALLET_ADDRESS=mtst1...` required | Running `qash-platform-e2e` from copied `.env.example` | Add a testnet Miden recipient address to `.env` |
+| `QASH_STRESS_RECEIVER_WALLET_ADDRESS=mtst1...` required | Running `qash-stress` from copied `.env.example` | Add receiver wallet address and `QASH_STRESS_LOOPS` to `.env` |
 | Qash opens on `Continue by email` | Auth profile expired or was never prepared | Run `yarn qash:profile` and close Chromium after login |
 | Google rejects login browser | Attempting auth in Playwright-controlled context | Use the standalone `yarn qash:profile` flow |
 | Wallet extension network mismatch | Wallet extension build does not match `E2E_NETWORK` | Run `yarn wallet:build:testnet` for the default path |

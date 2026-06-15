@@ -15,9 +15,9 @@ The harness keeps app logic in `apps/`, shared diagnostics in `harness/`, and Mi
 
 ## Requirements
 
-- Node.js 22+
+- Node.js 22 LTS, matching CI
 - Yarn 1.x
-- Playwright Chromium
+- Playwright `1.60.0` Chromium
 - Miden wallet repo only for wallet-backed ZoroSwap or Qash payer-wallet diagnostics
 
 ## Setup
@@ -77,8 +77,29 @@ After running `yarn qash:profile`, finish Qash/Para login in the opened browser,
 
 ## Qash Platform Journey
 
+This is an authenticated, mutating testnet flow. A clean clone can list it immediately, but a real run needs a saved Qash/Para profile and a testnet Miden recipient address.
+
 ```bash
-yarn qash-platform-e2e
+QASH_AUTH_USER_DATA_DIR=.auth/qash yarn qash:profile
+```
+
+Set this in `.env`:
+
+```bash
+QASH_AUTH_USER_DATA_DIR=.auth/qash
+QASH_PLATFORM_CONTACT_WALLET_ADDRESS=mtst1...
+```
+
+Run:
+
+```bash
+HEADLESS=false yarn qash-platform-e2e
+```
+
+Discovery without auth/profile setup:
+
+```bash
+yarn qash-platform-e2e -- --list
 ```
 
 This is the one-pass account-to-product journey: account setup, faucet settlement, Contact Book, Payroll, Invoice, and Payment Link creation.
@@ -87,18 +108,44 @@ Known status: Qash testnet can currently retain a stale faucet receive proposal 
 
 ## Qash Stress
 
+This is separate from `qash-platform-e2e`. The public/default stress path runs repeated Payroll and Invoice mutations. Payment Link creation and Actor A/B Payment Link money movement are disabled by default until the Qash Payment Link route is healthy again.
+
+Prepare the actor-a Qash profile:
+
 ```bash
-yarn qash:actor-profile actor-a
-yarn qash-stress
+QASH_AUTH_USER_DATA_DIR=.auth/qash/actor-a yarn qash:profile
 ```
 
-Set the stress loop count and receiver testnet wallet address in `.env` before running stress. The public/default stress path runs repeated Payroll and Invoice mutations. Payment Link creation and Actor A/B Payment Link money movement are disabled by default until the Qash Payment Link route is healthy again.
+Set this in `.env`:
 
-Use `-- --list` to verify stress discovery without a prepared auth profile:
+```bash
+QASH_AUTH_USER_DATA_DIR=.auth/qash/actor-a
+QASH_STRESS_LOOPS=1
+QASH_STRESS_RECEIVER_WALLET_ADDRESS=mtst1...
+QASH_STRESS_INCLUDE_PAYMENT_LINK=false
+QASH_STRESS_INCLUDE_MONEY_MOVEMENT=false
+```
+
+Run:
+
+```bash
+HEADLESS=false yarn qash-stress
+```
+
+Discovery without auth/profile setup:
 
 ```bash
 yarn qash-stress -- --list
 ```
+
+## Qash Flow Readiness
+
+```bash
+yarn qash-platform-e2e
+yarn qash-stress
+```
+
+Both commands are expected to fail fast from a copied `.env.example` until the required profile and `mtst1...` values above are configured. Normal run artifacts are written only after the Playwright spec starts.
 
 ## ZoroSwap Wallet Smoke
 
