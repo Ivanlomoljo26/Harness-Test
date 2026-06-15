@@ -161,10 +161,11 @@ yarn test:e2e:testnet:zoroswap -- --reporter=list
 
 Runs write diagnostics under `test-results/`, including:
 
-- `report.json`
-- `repro.md`
+- `checkpoints.json`
+- `run-context.json`
 - `timeline.ndjson`
 - screenshots, snapshots, and Playwright traces
+- failure-only `report.json` and `repro.md`
 
 ## CI
 
