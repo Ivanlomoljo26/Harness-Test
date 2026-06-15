@@ -23,6 +23,9 @@ const workloadLoops = firstEnvValue(
   'QASH_DURABILITY_LOOPS',
   'QASH_DURABILITY_PAYMENT_LOOPS'
 );
+const resolvedReceiverWalletAddress = receiverWalletAddress ||
+  (isListOnly ? 'mtst1example000000000000000000000000000000_qr7qqq9wr6w' : undefined);
+const resolvedWorkloadLoops = workloadLoops || (isListOnly ? '1' : undefined);
 const includeMixedPlatform = envFlag('QASH_STRESS_INCLUDE_MIXED_PLATFORM', true);
 const includeMoneyMovement = envFlag('QASH_STRESS_INCLUDE_MONEY_MOVEMENT', false);
 const includePaymentLink = envFlagFrom(
@@ -30,7 +33,7 @@ const includePaymentLink = envFlagFrom(
   false
 );
 
-if (!receiverWalletAddress || !/^mtst1/i.test(receiverWalletAddress)) {
+if (!resolvedReceiverWalletAddress || !/^mtst1/i.test(resolvedReceiverWalletAddress)) {
   console.error(
     [
       'Qash stress requires actor-b\'s testnet Miden receive address.',
@@ -41,7 +44,7 @@ if (!receiverWalletAddress || !/^mtst1/i.test(receiverWalletAddress)) {
   process.exit(1);
 }
 
-if (!workloadLoops || !/^[1-9]\d*$/.test(workloadLoops)) {
+if (!resolvedWorkloadLoops || !/^[1-9]\d*$/.test(resolvedWorkloadLoops)) {
   console.error(
     [
       'Qash stress requires the user-selected loop count.',
@@ -70,11 +73,11 @@ const actorAProfileDir = configuredActorAProfileDir ||
 const commonEnv = {
   ...process.env,
   E2E_APP: 'qash',
-  QASH_STRESS_RECEIVER_WALLET_ADDRESS: receiverWalletAddress,
-  QASH_DURABILITY_RECEIVER_WALLET_ADDRESS: receiverWalletAddress,
-  QASH_ACTOR_B_WALLET_ADDRESS: firstEnvValue('QASH_ACTOR_B_WALLET_ADDRESS') || receiverWalletAddress,
-  QASH_STRESS_LOOPS: workloadLoops,
-  QASH_DURABILITY_LOOPS: workloadLoops,
+  QASH_STRESS_RECEIVER_WALLET_ADDRESS: resolvedReceiverWalletAddress,
+  QASH_DURABILITY_RECEIVER_WALLET_ADDRESS: resolvedReceiverWalletAddress,
+  QASH_ACTOR_B_WALLET_ADDRESS: firstEnvValue('QASH_ACTOR_B_WALLET_ADDRESS') || resolvedReceiverWalletAddress,
+  QASH_STRESS_LOOPS: resolvedWorkloadLoops,
+  QASH_DURABILITY_LOOPS: resolvedWorkloadLoops,
   QASH_STRESS_INCLUDE_PAYMENT_LINK: includePaymentLink ? 'true' : 'false',
   QASH_DURABILITY_INCLUDE_PAYMENT_LINK: includePaymentLink ? 'true' : 'false',
   QASH_STRESS_INCLUDE_MONEY_MOVEMENT: includeMoneyMovement ? 'true' : 'false',
@@ -92,8 +95,8 @@ if (isListOnly && !process.env.QASH_AUTH_PREFLIGHT) {
 
 console.log('Running Qash stress on testnet.');
 console.log(`Actor A profile: ${actorAProfileDir || 'not required for --list'}`);
-console.log(`Receiver wallet address: ${receiverWalletAddress}`);
-console.log(`Stress loop count: ${workloadLoops}`);
+console.log(`Receiver wallet address: ${receiverWalletAddress || 'not required for --list'}`);
+console.log(`Stress loop count: ${workloadLoops || 'not required for --list'}`);
 console.log(`Mixed platform workload: ${includeMixedPlatform ? 'enabled' : 'disabled'}`);
 console.log(`Mixed platform Payment Link creation: ${includePaymentLink ? 'enabled' : 'disabled'}`);
 console.log(`Actor A/B money movement workload: ${includeMoneyMovement ? 'enabled' : 'disabled'}`);
