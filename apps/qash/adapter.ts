@@ -361,7 +361,8 @@ export class QashAdapter extends BaseAppAdapter {
   async assertAccountCreationReady(): Promise<void> {
     await this.expectAnyReadySignal([
       ...qashParaAuthLocators(this.page),
-      ...qashPostAuthOnboardingLocators(this.page)
+      ...qashPostAuthOnboardingLocators(this.page),
+      ...qashReadyLocators(this.page)
     ]);
   }
 
