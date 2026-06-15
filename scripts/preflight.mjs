@@ -2,51 +2,44 @@
 import './load-env.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  appNames,
+  loadAppRegistry,
+  registeredAppNames,
+  isAppName,
+  selectedAppNames as selectedAppNamesFromRegistry
+} from './app-registry.mjs';
 
 const app = process.env.E2E_APP || 'all';
 const network = process.env.E2E_NETWORK || 'testnet';
+const isListOnly = process.env.E2E_PREFLIGHT_LIST_ONLY === 'true';
 const extensionPath = resolveWalletExtensionPath(network);
 const walletPassword = process.env.WALLET_PASSWORD;
 const seed = process.env.TEST_ACCOUNT_SEED;
 const userDataDir = process.env.WALLET_USER_DATA_DIR;
 const walletSetupMode = process.env.WALLET_SETUP_MODE || (userDataDir ? 'profile' : seed ? 'import' : 'create');
 
-const APP_CONFIGS = {
-  zoroswap: {
-    displayName: 'ZoroSwap',
-    envPrefix: 'ZOROSWAP',
-    defaultUrl: 'https://app.zoroswap.com/',
-    requiresMidenWallet: true,
-    networkUrls: {
-      testnet: 'https://app.zoroswap.com/'
-    }
-  },
-  qash: {
-    displayName: 'Qash Finance',
-    envPrefix: 'QASH',
-    defaultUrl: 'https://app.qash.finance/',
-    requiresMidenWallet: false,
-    networkUrls: {
-      testnet: 'https://app.qash.finance/'
-    }
-  }
-};
+const APP_CONFIGS = loadAppRegistry();
 
 const errors = [];
 let appUrls = {};
 let requiresMidenWallet = true;
 let appAuthProfiles = {};
 
-if (!['all', 'zoroswap', 'qash'].includes(app)) {
-  errors.push(`E2E_APP must be all, zoroswap, or qash. Got ${app}.`);
+if (app !== 'all' && !isAppName(app)) {
+  if (isAppName(app, { includeDisabled: true })) {
+    errors.push(`E2E_APP=${app} is registered but disabled in config/apps.json.`);
+  } else {
+    errors.push(`E2E_APP must be all or one of ${appNames().join(', ')}. Got ${app}. Registered apps: ${registeredAppNames().join(', ')}.`);
+  }
 }
 
 if (!['devnet', 'testnet', 'localhost'].includes(network)) {
   errors.push(`E2E_NETWORK must be devnet, testnet, or localhost. Got ${network}.`);
 }
 
-if (['all', 'zoroswap', 'qash'].includes(app) && ['devnet', 'testnet', 'localhost'].includes(network)) {
-  requiresMidenWallet = selectedAppNames(app).some(appName => APP_CONFIGS[appName].requiresMidenWallet);
+if ((app === 'all' || isAppName(app)) && ['devnet', 'testnet', 'localhost'].includes(network)) {
+  requiresMidenWallet = selectedAppNamesFromRegistry(app).some(appName => APP_CONFIGS[appName].requiresMidenWallet);
   appUrls = resolveAppUrls(network, app);
   appAuthProfiles = resolveAppAuthProfiles(app);
   for (const info of Object.values(appUrls)) {
@@ -62,7 +55,7 @@ if (['all', 'zoroswap', 'qash'].includes(app) && ['devnet', 'testnet', 'localhos
   }
 }
 
-if (process.env.E2E_REQUIRE_APP_AUTH_PROFILE === 'true') {
+if (!isListOnly && process.env.E2E_REQUIRE_APP_AUTH_PROFILE === 'true') {
   for (const [appName, profile] of Object.entries(appAuthProfiles)) {
     if (!profile.path && !profile.cdpEndpoint) {
       errors.push(
@@ -73,7 +66,7 @@ if (process.env.E2E_REQUIRE_APP_AUTH_PROFILE === 'true') {
       errors.push(`App auth user data dir does not exist for ${profile.displayName}: ${profile.path}`);
     }
   }
-} else {
+} else if (!isListOnly) {
   for (const profile of Object.values(appAuthProfiles)) {
     if (profile.path && !profile.cdpEndpoint && !fs.existsSync(profile.path)) {
       errors.push(`App auth user data dir does not exist for ${profile.displayName}: ${profile.path}`);
@@ -90,12 +83,12 @@ for (const profile of Object.values(appAuthProfiles)) {
   }
 }
 
-if (requiresMidenWallet && !fs.existsSync(path.join(extensionPath, 'manifest.json'))) {
+if (!isListOnly && requiresMidenWallet && !fs.existsSync(path.join(extensionPath, 'manifest.json'))) {
   errors.push(
     `Wallet extension path does not contain manifest.json: ${extensionPath}. ` +
       `Run yarn wallet:build:${network} or set WALLET_EXTENSION_PATH_${network.toUpperCase()}.`
   );
-} else if (requiresMidenWallet && process.env.E2E_STRICT_WALLET_NETWORK !== 'false' && network !== 'localhost') {
+} else if (!isListOnly && requiresMidenWallet && process.env.E2E_STRICT_WALLET_NETWORK !== 'false' && network !== 'localhost') {
   const extensionInfo = detectWalletExtensionNetwork(extensionPath);
   if (extensionInfo.detectedNetwork !== network) {
     errors.push(
@@ -106,27 +99,27 @@ if (requiresMidenWallet && !fs.existsSync(path.join(extensionPath, 'manifest.jso
   }
 }
 
-if (requiresMidenWallet && !walletPassword) {
+if (!isListOnly && requiresMidenWallet && !walletPassword) {
   errors.push('WALLET_PASSWORD is required.');
 }
 
-if (requiresMidenWallet && !['create', 'import', 'profile'].includes(walletSetupMode)) {
+if (!isListOnly && requiresMidenWallet && !['create', 'import', 'profile'].includes(walletSetupMode)) {
   errors.push(`WALLET_SETUP_MODE must be create, import, or profile. Got ${walletSetupMode}.`);
 }
 
-if (requiresMidenWallet && walletSetupMode === 'import' && !seed) {
+if (!isListOnly && requiresMidenWallet && walletSetupMode === 'import' && !seed) {
   errors.push('WALLET_SETUP_MODE=import requires TEST_ACCOUNT_SEED.');
 }
 
-if (requiresMidenWallet && walletSetupMode === 'profile' && !userDataDir) {
+if (!isListOnly && requiresMidenWallet && walletSetupMode === 'profile' && !userDataDir) {
   errors.push('WALLET_SETUP_MODE=profile requires WALLET_USER_DATA_DIR.');
 }
 
-if (requiresMidenWallet && seed && seed.trim().split(/\s+/).length < 12) {
+if (!isListOnly && requiresMidenWallet && seed && seed.trim().split(/\s+/).length < 12) {
   errors.push('TEST_ACCOUNT_SEED must contain at least 12 words.');
 }
 
-if (requiresMidenWallet && userDataDir && !fs.existsSync(path.resolve(userDataDir))) {
+if (!isListOnly && requiresMidenWallet && userDataDir && !fs.existsSync(path.resolve(userDataDir))) {
   errors.push(`WALLET_USER_DATA_DIR does not exist: ${path.resolve(userDataDir)}`);
 }
 
@@ -140,6 +133,7 @@ console.log('Pioneer E2E preflight passed.');
 console.log(JSON.stringify({
   app,
   network,
+  listOnly: isListOnly,
   requiresMidenWallet,
   extensionPath: requiresMidenWallet ? extensionPath : null,
   walletSetupMode: requiresMidenWallet ? walletSetupMode : null,
@@ -159,20 +153,15 @@ function resolveWalletExtensionPath(networkName) {
 
 function resolveAppUrls(networkName, selectedApp) {
   const result = {};
-  for (const appName of selectedAppNames(selectedApp)) {
+  for (const appName of selectedAppNamesFromRegistry(selectedApp)) {
     result[appName] = resolveAppUrlInfo(appName, networkName);
   }
   return result;
 }
 
-function selectedAppNames(selectedApp) {
-  if (selectedApp === 'all') return ['zoroswap', 'qash'];
-  return [selectedApp];
-}
-
 function resolveAppAuthProfiles(selectedApp) {
   const result = {};
-  for (const appName of selectedAppNames(selectedApp)) {
+  for (const appName of selectedAppNamesFromRegistry(selectedApp)) {
     const config = APP_CONFIGS[appName];
     const appEnv = `${config.envPrefix}_AUTH_USER_DATA_DIR`;
     const cdpEndpointEnv = `${config.envPrefix}_AUTH_CDP_ENDPOINT`;

@@ -1,0 +1,26 @@
+{
+  "zoroswap": {
+    "name": "zoroswap",
+    "displayName": "ZoroSwap",
+    "enabled": true,
+    "defaultUrl": "https://app.zoroswap.com/",
+    "envPrefix": "ZOROSWAP",
+    "primaryScenarios": ["connect-wallet-smoke", "swap-smoke"],
+    "requiresMidenWallet": true,
+    "networkUrls": {
+      "testnet": "https://app.zoroswap.com/"
+    }
+  },
+  "qash": {
+    "name": "qash",
+    "displayName": "Qash Finance",
+    "enabled": true,
+    "defaultUrl": "https://app.qash.finance/",
+    "envPrefix": "QASH",
+    "primaryScenarios": ["account-onboarding-smoke", "programmable-payment-smoke"],
+    "requiresMidenWallet": false,
+    "networkUrls": {
+      "testnet": "https://app.qash.finance/"
+    }
+  }
+}

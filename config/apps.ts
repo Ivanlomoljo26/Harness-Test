@@ -1,7 +1,8 @@
+import { createRequire } from 'node:module';
 import './load-env';
 import { getEnvironmentConfig, type MidenNetworkName } from './environments';
 
-export type PioneerAppName = 'zoroswap' | 'qash';
+export type PioneerAppName = string;
 export type AppUrlSource = 'network-env' | 'generic-env' | 'known-network-default' | 'default-fallback';
 
 export interface PioneerAppConfig {
@@ -21,6 +22,7 @@ export interface PioneerAppConfig {
 interface PioneerAppBaseConfig {
   name: PioneerAppName;
   displayName: string;
+  enabled?: boolean;
   defaultUrl: string;
   envPrefix: string;
   primaryScenarios: string[];
@@ -28,33 +30,27 @@ interface PioneerAppBaseConfig {
   requiresMidenWallet: boolean;
 }
 
-export const APP_BASE_CONFIGS: Record<PioneerAppName, PioneerAppBaseConfig> = {
-  zoroswap: {
-    name: 'zoroswap',
-    displayName: 'ZoroSwap',
-    defaultUrl: 'https://app.zoroswap.com/',
-    envPrefix: 'ZOROSWAP',
-    primaryScenarios: ['connect-wallet-smoke', 'swap-smoke'],
-    requiresMidenWallet: true,
-    networkUrls: {
-      testnet: 'https://app.zoroswap.com/'
-    }
-  },
-  qash: {
-    name: 'qash',
-    displayName: 'Qash Finance',
-    defaultUrl: 'https://app.qash.finance/',
-    envPrefix: 'QASH',
-    primaryScenarios: ['account-onboarding-smoke', 'programmable-payment-smoke'],
-    requiresMidenWallet: false,
-    networkUrls: {
-      testnet: 'https://app.qash.finance/'
-    }
-  }
-};
+const require = createRequire(import.meta.url);
+const rawAppConfigs = require('./apps.json') as Record<PioneerAppName, PioneerAppBaseConfig>;
+
+export const APP_BASE_CONFIGS = rawAppConfigs as Record<PioneerAppName, PioneerAppBaseConfig>;
+
+export function appNames(options: { includeDisabled?: boolean } = {}): PioneerAppName[] {
+  return Object.entries(APP_BASE_CONFIGS)
+    .filter(([, config]) => options.includeDisabled || config.enabled !== false)
+    .map(([name]) => name);
+}
+
+export function isPioneerAppName(
+  value: string,
+  options: { includeDisabled?: boolean } = {}
+): value is PioneerAppName {
+  return Object.prototype.hasOwnProperty.call(APP_BASE_CONFIGS, value) &&
+    (options.includeDisabled || APP_BASE_CONFIGS[value]?.enabled !== false);
+}
 
 export function getAppConfig(name: PioneerAppName, networkName = getEnvironmentConfig().name): PioneerAppConfig {
-  const base = APP_BASE_CONFIGS[name];
+  const base = getBaseAppConfig(name);
   const resolvedUrl = resolveAppUrl(name, networkName);
 
   return {
@@ -81,7 +77,7 @@ export function resolveAppUrl(
   networkUrlEnv: string;
   source: AppUrlSource;
 } {
-  const base = APP_BASE_CONFIGS[name];
+  const base = getBaseAppConfig(name);
   const genericUrlEnv = `${base.envPrefix}_URL`;
   const networkUrlEnv = `${base.envPrefix}_URL_${networkName.toUpperCase()}`;
 
@@ -102,23 +98,40 @@ export function resolveAppUrl(
 
 export function requiresExplicitNetworkUrl(name: PioneerAppName, networkName: MidenNetworkName): boolean {
   if (networkName === 'localhost') return false;
-  const base = APP_BASE_CONFIGS[name];
+  const base = getBaseAppConfig(name);
   const networkUrlEnv = `${base.envPrefix}_URL_${networkName.toUpperCase()}`;
   return !base.networkUrls[networkName] && !process.env[networkUrlEnv];
 }
 
 export function selectedAppNames(selected = process.env.E2E_APP ?? 'all'): PioneerAppName[] {
-  if (selected === 'all') return ['zoroswap', 'qash'];
-  if (selected === 'zoroswap' || selected === 'qash') return [selected];
-  throw new Error(`E2E_APP must be all, zoroswap, or qash. Got ${selected}.`);
+  if (selected === 'all') return appNames();
+  if (isPioneerAppName(selected)) return [selected];
+  if (isPioneerAppName(selected, { includeDisabled: true })) {
+    throw new Error(`E2E_APP=${selected} is registered but disabled in config/apps.json.`);
+  }
+  throw new Error(`E2E_APP must be all or one of ${appNames().join(', ')}. Got ${selected}.`);
 }
 
 export function inferAppNameFromFile(filePath: string): PioneerAppName {
-  if (filePath.includes('/apps/zoroswap/')) return 'zoroswap';
-  if (filePath.includes('/apps/qash/')) return 'qash';
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  const match = normalizedPath.match(/(?:^|\/)apps\/([^/]+)\//);
+  const appName = match?.[1];
+  if (appName && isPioneerAppName(appName)) return appName;
   throw new Error(`Cannot infer Pioneer app from test file path: ${filePath}`);
 }
 
 export function shouldRunApp(name: PioneerAppName, selected = process.env.E2E_APP ?? 'all'): boolean {
+  if (!isPioneerAppName(name)) return false;
   return selected === 'all' || selected === name;
+}
+
+function getBaseAppConfig(name: PioneerAppName): PioneerAppBaseConfig {
+  const base = APP_BASE_CONFIGS[name];
+  if (!base) {
+    throw new Error(`Unknown Pioneer app "${name}". Registered apps: ${appNames({ includeDisabled: true }).join(', ')}`);
+  }
+  if (base.enabled === false) {
+    throw new Error(`Pioneer app "${name}" is disabled in config/apps.json.`);
+  }
+  return base;
 }

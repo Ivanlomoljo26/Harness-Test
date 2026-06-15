@@ -45,7 +45,55 @@ pioneer-e2e/
 
 Keep reusable behavior in `harness/`, wallet behavior in `wallet/`, and app behavior in `apps/<app>/`. New app support should not copy Qash or ZoroSwap internals; it should follow [app-onboarding-template.md](app-onboarding-template.md), then add a new adapter and selectors that use the same shared fixtures.
 
-## 2. Setup Instructions For New Users
+## 2. App And Flow Selection
+
+App metadata is centralized in `config/apps.json`. TypeScript config, preflight, and generic app runners read from that registry, so a future app does not require editing the runner scripts. Set an app's `enabled` flag to `false` to exclude it from `E2E_APP=all` and generic app choices while keeping the app module in the repo.
+
+Supported selection levels:
+
+```bash
+# Repository health / discovery
+yarn ts
+yarn preflight
+npx playwright test --list
+
+# One registered app, all flows for that app on testnet
+node scripts/run-app-network.mjs qash testnet --list
+node scripts/run-app-network.mjs zoroswap testnet --list
+
+# Package-script aliases for current apps
+yarn test:e2e:testnet:qash -- --list
+yarn test:e2e:testnet:zoroswap -- --list
+
+# All enabled apps on testnet
+yarn test:e2e:all -- --list
+
+# One specific flow/spec
+npx playwright test apps/qash/flows/platform-journey.spec.ts --list
+npx playwright test apps/qash/flows/durability-stress.spec.ts --list
+npx playwright test apps/zoroswap/flows/connect-wallet.spec.ts --list
+```
+
+Current named Qash flows:
+
+| Flow | Command |
+|---|---|
+| Public onboarding | `npx playwright test apps/qash/flows/account-onboarding.spec.ts --reporter=list` |
+| Authenticated Qash smoke | `yarn test:e2e:testnet:qash:auth:chromium -- --reporter=list` |
+| `qash-platform-e2e` | `yarn qash-platform-e2e` |
+| `qash-stress` | `yarn qash-stress` |
+| Stress discovery without auth profile | `yarn qash-stress -- --list` |
+| Actor A/B Payment Link diagnostic | `yarn test:e2e:testnet:qash:money-movement` |
+
+When adding a new app:
+
+1. Add `apps/<app>/adapter.ts`, `apps/<app>/selectors.ts`, and one or more `apps/<app>/flows/*.spec.ts` files.
+2. Add the app entry to `config/apps.json` with `enabled: true` when it is ready for generic `all` runs.
+3. Keep app-specific imports and workflow code inside the app module.
+4. Add a package-script alias only if the app needs a friendly shortcut; the generic `node scripts/run-app-network.mjs <app> testnet` path already works for every enabled app in the registry.
+5. Add the app to GitHub Actions `workflow_dispatch` choices only when it should be user-selectable in CI.
+
+## 3. Setup Instructions For New Users
 
 ```bash
 git clone https://github.com/Ivanlomoljo26/Harness-Test.git
@@ -74,7 +122,7 @@ yarn wallet:build:testnet
 
 After wallet setup, switch `.env` to `E2E_APP=all` or `E2E_APP=zoroswap` when you want wallet-backed app coverage.
 
-## 3. Required Dependencies And Environment Variables
+## 4. Required Dependencies And Environment Variables
 
 Required local dependencies:
 
@@ -118,7 +166,7 @@ Core environment variables:
 
 Use `.env` for local values. Never commit `.env`, `.auth/`, `.wallet-builds/`, wallet profiles, test seeds, or `test-results/`.
 
-## 4. How To Run Tests Locally
+## 5. How To Run Tests Locally
 
 Repository health checks:
 
@@ -172,7 +220,7 @@ QASH_FILL_PAYMENT_LINK_FORM=true \
 Continuous Qash product journey through Payment Link:
 
 ```bash
-QASH_PLATFORM_CONTACT_WALLET_ADDRESS=mtst1... yarn test:e2e:testnet:qash:platform
+QASH_PLATFORM_CONTACT_WALLET_ADDRESS=mtst1... yarn qash-platform-e2e
 ```
 
 This command creates or reuses a Qash multisig account from the reusable actor pool, requests faucet funding every run, waits for faucet mint/sync settlement, verifies direct funding or completes the faucet receive transaction when actionable, confirms the selected account balance, creates an employee contact, creates Payroll, creates and views an Invoice, returns to the Invoice dashboard, then creates a Payment Link. The pool creates accounts until `QASH_PLATFORM_ACCOUNT_POOL_SIZE`, default `3`, and then randomly reuses a visible existing account unless `QASH_PLATFORM_ALLOW_ACCOUNT_OVER_CAP=true` is explicitly set. It is one Playwright test, so the authenticated Chromium context stays open from the first account step until Payment Link creation completes or a fatal failure closes the run.
@@ -184,7 +232,7 @@ Qash stress with actor-a profile and a receiver wallet input:
 ```bash
 QASH_STRESS_LOOPS=<user-selected-loop-count> \
 QASH_STRESS_RECEIVER_WALLET_ADDRESS=mtst1... \
-yarn test:e2e:testnet:qash:stress
+yarn qash-stress
 ```
 
 Prepare actor-a as the Chromium profile first. The receiver wallet address is represented by the saved testnet Miden receive address used on Payroll and Invoice workload forms:
@@ -239,7 +287,7 @@ yarn test:e2e:all
 
 `test:e2e:all` runs the testnet path by default. Devnet is intentionally not part of the current active scope and should be added later only when explicitly requested or needed.
 
-## 5. How To Run Tests In CI With GitHub Actions
+## 6. How To Run Tests In CI With GitHub Actions
 
 The workflow at `.github/workflows/pioneer-e2e.yml` has two modes.
 
@@ -273,7 +321,7 @@ Configure repository secrets for wallet-backed apps:
 
 Authenticated Qash CI needs a CI-safe auth strategy before it should be enabled by default. Do not store personal Google credentials in GitHub secrets. Prefer a dedicated test account, provider-supported auth state, or a future service-account/test-mode flow. The continuous Qash product journey should run in GitHub Actions only after that CI-safe auth state exists and `QASH_PLATFORM_CONTACT_WALLET_ADDRESS` is provided from a repository variable or secret.
 
-## 6. Test Artifacts
+## 7. Test Artifacts
 
 Each test writes structured artifacts under:
 
@@ -294,7 +342,7 @@ Important files:
 
 GitHub Actions uploads `test-results/` as a testnet workflow artifact. Open the workflow run, scroll to **Artifacts**, download the relevant zip, then start with `report.json` and `repro.md`.
 
-## 7. Beginner-Friendly Harness Rules
+## 8. Beginner-Friendly Harness Rules
 
 - Keep `.env.example` complete and safe to copy.
 - Make `yarn ts`, `npx playwright test --list`, and `yarn preflight` the first troubleshooting commands.
@@ -306,7 +354,7 @@ GitHub Actions uploads `test-results/` as a testnet workflow artifact. Open the 
 - Start new apps from `docs/app-onboarding-template.md` and `templates/pioneer-app/`.
 - Document every required secret or external prerequisite next to the command that needs it.
 
-## 8. Troubleshooting Failed Tests
+## 9. Troubleshooting Failed Tests
 
 Start with setup validation:
 

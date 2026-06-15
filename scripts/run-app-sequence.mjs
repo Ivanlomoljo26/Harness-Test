@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import './load-env.mjs';
 import { spawnSync } from 'node:child_process';
+import { appChoicesLabel, isAppName } from './app-registry.mjs';
 
 const [app, ...args] = process.argv.slice(2);
 
-if (!app || !['zoroswap', 'qash', 'all'].includes(app)) {
-  console.error('Usage: node scripts/run-app-sequence.mjs <zoroswap|qash|all> [testnet|localhost|devnet ...]');
+if (!app || (app !== 'all' && !isAppName(app))) {
+  console.error(`Usage: node scripts/run-app-sequence.mjs <${appChoicesLabel({ includeAll: true })}> [testnet|localhost|devnet ...]`);
   process.exit(2);
 }
 

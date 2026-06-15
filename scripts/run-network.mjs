@@ -10,12 +10,19 @@ if (!network || !['devnet', 'testnet', 'localhost'].includes(network)) {
 }
 
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const isListOnly = rest.includes('--list');
+const preflightEnv = {
+  ...process.env,
+  E2E_NETWORK: network
+};
+
+if (isListOnly) {
+  preflightEnv.E2E_PREFLIGHT_LIST_ONLY = 'true';
+}
+
 const preflight = spawnSync(process.execPath, ['scripts/preflight.mjs'], {
   stdio: 'inherit',
-  env: {
-    ...process.env,
-    E2E_NETWORK: network
-  }
+  env: preflightEnv
 });
 
 if ((preflight.status ?? 1) !== 0) {

@@ -46,6 +46,24 @@ Public Qash smoke:
 npx playwright test apps/qash/flows/account-onboarding.spec.ts --reporter=list
 ```
 
+## Run Selection
+
+```bash
+# Current app aliases
+yarn test:e2e:testnet:qash -- --list
+yarn test:e2e:testnet:zoroswap -- --list
+
+# Generic registered-app runner
+node scripts/run-app-network.mjs qash testnet --list
+
+# Specific flows
+yarn qash-platform-e2e -- --list
+yarn qash-stress -- --list
+npx playwright test apps/qash/flows/platform-journey.spec.ts --list
+```
+
+Registered apps are controlled in `config/apps.json`; set an app's `enabled` flag to `false` to exclude it from `all` runs without removing its module.
+
 ## Qash Authenticated Runs
 
 Qash authenticated tests use a local Chromium profile. The harness does not automate Google credentials.
@@ -60,7 +78,7 @@ After running `yarn qash:profile`, finish Qash/Para login in the opened browser,
 ## Qash Platform Journey
 
 ```bash
-yarn test:e2e:testnet:qash:platform
+yarn qash-platform-e2e
 ```
 
 This is the one-pass account-to-product journey: account setup, faucet settlement, Contact Book, Payroll, Invoice, and Payment Link creation.
@@ -71,7 +89,7 @@ Known status: Qash testnet can currently retain a stale faucet receive proposal 
 
 ```bash
 yarn qash:actor-profile actor-a
-yarn test:e2e:testnet:qash:stress
+yarn qash-stress
 ```
 
 Set the stress loop count and receiver testnet wallet address in `.env` before running stress. The public/default stress path runs repeated Payroll and Invoice mutations. Payment Link creation and Actor A/B Payment Link money movement are disabled by default until the Qash Payment Link route is healthy again.
@@ -79,7 +97,7 @@ Set the stress loop count and receiver testnet wallet address in `.env` before r
 Use `-- --list` to verify stress discovery without a prepared auth profile:
 
 ```bash
-yarn test:e2e:testnet:qash:stress -- --list
+yarn qash-stress -- --list
 ```
 
 ## ZoroSwap Wallet Smoke

@@ -36,19 +36,18 @@ Starter files are available under `templates/pioneer-app/`.
 
 ## App Registration Checklist
 
-- Add the app name to `PioneerAppName` in `config/apps.ts`.
-- Add a base config in `APP_BASE_CONFIGS`.
+- Add a base config in `config/apps.json`; `config/apps.ts`, preflight, and generic app runners read from that registry.
+- Set `enabled: true` only when the app should be included in `E2E_APP=all` and generic app choices; use `enabled: false` while a module is scaffolded but not ready.
 - Set `requiresMidenWallet` correctly:
   - `true` for apps that need the Miden wallet extension.
   - `false` for apps with their own account provider or public read-only flows.
 - Add known safe testnet URL defaults only when they are real public testnet deployments.
 - Do not fake network coverage. The default active path is testnet; add another network only when the user explicitly asks for it or there is a real matching deployment and verification plan.
-- Add the app to `selectedAppNames`.
-- Add path inference in `inferAppNameFromFile`.
 - Add `.env.example` entries for:
   - `<APP>_URL_TESTNET`
   - app-specific auth/profile variables
   - stateful or transaction gates
+- Add a package-script alias only if the app needs a friendly shortcut; `node scripts/run-app-network.mjs <app> testnet` works for every app in `config/apps.json`.
 
 ## Suite Tiers
 
