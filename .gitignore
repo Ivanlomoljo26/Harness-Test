@@ -1,0 +1,7 @@
+node_modules/
+test-results/
+playwright-report/
+.env
+.wallet-builds/
+.wallet-user-data/
+.auth/

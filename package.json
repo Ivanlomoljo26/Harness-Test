@@ -1,0 +1,42 @@
+{
+  "name": "miden-pioneer-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preflight": "node scripts/preflight.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:list": "playwright test --list",
+    "test:e2e:testnet": "node scripts/run-network.mjs testnet",
+    "test:e2e:all": "node scripts/run-network-sequence.mjs testnet",
+    "test:e2e:zoroswap": "node scripts/run-app-sequence.mjs zoroswap testnet",
+    "test:e2e:qash": "node scripts/run-app-sequence.mjs qash testnet",
+    "test:e2e:testnet:zoroswap": "node scripts/run-app-network.mjs zoroswap testnet",
+    "test:e2e:testnet:qash": "node scripts/run-app-network.mjs qash testnet",
+    "test:e2e:testnet:qash:auth": "node scripts/run-qash-authenticated.mjs testnet",
+    "test:e2e:testnet:qash:auth:chromium": "node scripts/run-qash-chromium-authenticated.mjs testnet",
+    "test:e2e:testnet:qash:auth:windows-profile": "node scripts/run-qash-windows-profile-authenticated.mjs testnet",
+    "test:e2e:testnet:qash:platform": "node scripts/run-qash-platform-journey.mjs testnet",
+    "test:e2e:testnet:qash:pending-drain": "QASH_PLATFORM_DRAIN_ONLY=true node scripts/run-qash-platform-journey.mjs testnet",
+    "test:e2e:testnet:qash:pending-audit": "QASH_PLATFORM_PENDING_AUDIT_ONLY=true node scripts/run-qash-platform-journey.mjs testnet",
+    "test:e2e:testnet:qash:stress": "node scripts/run-qash-stress.mjs testnet",
+    "test:e2e:testnet:qash:durability": "node scripts/run-qash-durability-stress.mjs testnet",
+    "test:e2e:testnet:qash:money-movement": "node scripts/run-qash-money-movement.mjs testnet",
+    "test:e2e:testnet:qash:actor-a-wallet-connect": "node scripts/run-qash-actor-a-wallet-connect.mjs testnet",
+    "test:e2e:testnet:qash:actor-a-payment-link-pay": "QASH_ACTOR_A_WALLET_PAY=true node scripts/run-qash-actor-a-wallet-connect.mjs testnet",
+    "test:e2e:testnet:qash:actor-a-social-payment": "node scripts/run-qash-actor-a-social-payment.mjs testnet",
+    "test:e2e:testnet:qash:actor-a-social-payment-wallet": "QASH_ACTOR_A_SOCIAL_PAYMENT_WALLET_CONTEXT=true QASH_ACTOR_A_SOCIAL_PAYMENT_PAY=false node scripts/run-qash-actor-a-social-payment.mjs testnet",
+    "qash:profile": "node scripts/prepare-qash-profile.mjs",
+    "qash:actor-profile": "node scripts/prepare-qash-actor-profile.mjs",
+    "qash:chrome-cdp-check": "node scripts/check-qash-windows-chrome-cdp.mjs",
+    "wallet:build:testnet": "node scripts/build-wallet-extension.mjs testnet",
+    "wallet:build:all": "yarn wallet:build:testnet",
+    "summarize": "node scripts/summarize-run.mjs",
+    "ts": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

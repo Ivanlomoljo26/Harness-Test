@@ -1,0 +1,142 @@
+name: Pioneer E2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pioneer-e2e.yml'
+      - 'apps/**'
+      - 'config/**'
+      - 'harness/**'
+      - 'scripts/**'
+      - 'wallet/**'
+      - 'package.json'
+      - 'playwright.config.ts'
+      - 'tsconfig.json'
+      - 'yarn.lock'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/pioneer-e2e.yml'
+      - 'apps/**'
+      - 'config/**'
+      - 'harness/**'
+      - 'scripts/**'
+      - 'wallet/**'
+      - 'package.json'
+      - 'playwright.config.ts'
+      - 'tsconfig.json'
+      - 'yarn.lock'
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App to test
+        required: true
+        default: qash
+        type: choice
+        options:
+          - qash
+          - zoroswap
+          - all
+      wallet_ref:
+        description: Wallet repository ref to build
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pioneer-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Repository health
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_APP: qash
+      E2E_NETWORK: testnet
+      QASH_AUTH_PREFLIGHT: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install framework dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: TypeScript check
+        run: yarn ts
+
+      - name: List Playwright tests
+        run: npx playwright test --list
+
+      - name: Qash-only preflight without wallet secrets
+        run: yarn preflight
+
+  testnet:
+    name: Pioneer E2E (testnet)
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      E2E_APP: ${{ inputs.app }}
+      E2E_NETWORK: testnet
+      WALLET_PASSWORD: ${{ secrets.WALLET_PASSWORD }}
+      TEST_ACCOUNT_SEED: ${{ secrets.TEST_ACCOUNT_SEED }}
+      WALLET_REPO_PATH: ${{ github.workspace }}/wallet
+      ZOROSWAP_URL_TESTNET: ${{ vars.ZOROSWAP_URL_TESTNET }}
+      QASH_URL_TESTNET: ${{ vars.QASH_URL_TESTNET }}
+      QASH_AUTH_PREFLIGHT: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Check out wallet
+        if: ${{ inputs.app != 'qash' }}
+        uses: actions/checkout@v4
+        with:
+          repository: 0xMiden/wallet
+          ref: ${{ inputs.wallet_ref }}
+          path: wallet
+
+      - name: Install framework dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install wallet dependencies
+        if: ${{ inputs.app != 'qash' }}
+        working-directory: wallet
+        run: yarn install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build wallet extension for testnet
+        if: ${{ inputs.app != 'qash' }}
+        run: yarn wallet:build:testnet
+
+      - name: Preflight
+        run: yarn preflight
+
+      - name: Run testnet
+        run: xvfb-run -a yarn test:e2e:testnet
+
+      - name: Upload testnet artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pioneer-e2e-testnet-${{ github.run_id }}
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: ignore

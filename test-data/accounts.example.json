@@ -1,0 +1,11 @@
+{
+  "description": "Example only. Do not commit real seed phrases.",
+  "accounts": [
+    {
+      "name": "primary",
+      "network": "testnet",
+      "seedEnv": "TEST_ACCOUNT_SEED",
+      "notes": "Use GitHub Actions secrets or a local .env file."
+    }
+  ]
+}
